@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title></title>
+  </head>
+  <style>
+.centrer {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 50vh; /* poussé de la moitié de hauteur de viewport */
+  transform: translateY(-50%); /* tiré de la moitié de sa propre hauteur */
+}
+</style>
+  
+  <body style="background-color:#000000;">
+	<audio id="virtualmoney" src="virtual_money_gris.mp3"></audio>
+	<audio id="seasonpass" src="season_pass_vert.mp3"></audio>
+	<audio id="lootbox" src="loot_box_bleu.mp3"></audio>
+	<audio id="darkpattern" src="dark_pattern_jaune.mp3"></audio>
+	<audio id="paytowin" src="pay_to_win_rouge.mp3"></audio>
+		    
+    <map name="map1">
+      <area shape="rect" coords="140,300,240,400" title="gris" onclick="VirtualMoney()"/>
+      <area shape="rect" coords="450,320,500,380" title="vert" onclick="SeasonPass()"/>
+	 <area shape="rect" coords="520,260,580,320" title="bleu" onclick="LootBox()"/>
+	 <area shape="rect" coords="520,375,580,435" title="jaune" onclick="DarkPattern()"/>
+	 <area shape="rect" coords="600,310,655,380" title="rouge" onclick="PayToWin()"/>
+	 <area shape="rect" coords="300,355,400,390" title="noir" onclick="StopTout()"/>
+    </map>
+    <img src="manette.jpg" usemap="#map1" alt="Manette" class="centrer">
+  
+<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+<script>
+    function VirtualMoney() {
+            var vmsound = document.getElementById("virtualmoney");
+				var lbsound = document.getElementById("lootbox");
+				var spsound = document.getElementById("seasonpass");
+				var dpsound = document.getElementById("darkpattern");
+				var ptwsound = document.getElementById("paytowin");
+				lbsound.pause();
+				lbsound.currentTime = 0;
+				spsound.pause();
+				spsound.currentTime = 0;
+				dpsound.pause();
+				dpsound.currentTime = 0;
+				ptwsound.pause();
+				ptwsound.currentTime = 0;
+			vmsound.pause();
+			vmsound.currentTime = 0;			
+			vmsound.play();
+        }
+  function SeasonPass() {
+            var spsound = document.getElementById("seasonpass");
+				var lbsound = document.getElementById("lootbox");
+				var vmsound = document.getElementById("virtualmoney");
+				var dpsound = document.getElementById("darkpattern");
+				var ptwsound = document.getElementById("paytowin");
+				lbsound.pause();
+				lbsound.currentTime = 0;
+				vmsound.pause();
+				vmsound.currentTime = 0;
+				dpsound.pause();
+				dpsound.currentTime = 0;
+				ptwsound.pause();
+				ptwsound.currentTime = 0;
+			spsound.pause();
+			spsound.currentTime = 0;	      
+			spsound.play();
+        }
+	    function LootBox() {
+            var lbsound = document.getElementById("lootbox");
+				var vmsound = document.getElementById("virtualmoney");
+				var spsound = document.getElementById("seasonpass");
+				var dpsound = document.getElementById("darkpattern");
+				var ptwsound = document.getElementById("paytowin");
+				vmsound.pause();
+				vmsound.currentTime = 0;
+				spsound.pause();
+				spsound.currentTime = 0;
+				dpsound.pause();
+				dpsound.currentTime = 0;
+				ptwsound.pause();
+				ptwsound.currentTime = 0;
+			lbsound.pause();
+			lbsound.currentTime = 0;
+			lbsound.play();
+        }	
+	    function DarkPattern() {
+            var dpsound = document.getElementById("darkpattern");
+				var vmsound = document.getElementById("virtualmoney");
+				var spsound = document.getElementById("seasonpass");
+				var lbsound = document.getElementById("lootbox");
+				var ptwsound = document.getElementById("paytowin");
+				vmsound.pause();
+				vmsound.currentTime = 0;
+				spsound.pause();
+				spsound.currentTime = 0;
+				ptwsound.pause();
+				ptwsound.currentTime = 0;
+				lbsound.pause();
+				lbsound.currentTime = 0;
+			dpsound.pause();
+			dpsound.currentTime = 0;
+			dpsound.play();
+        }	
+		function PayToWin() {
+            var ptwsound = document.getElementById("paytowin");
+				var vmsound = document.getElementById("virtualmoney");
+				var spsound = document.getElementById("seasonpass");
+				var lbsound = document.getElementById("lootbox");
+				var dpsound = document.getElementById("darkpattern");
+				vmsound.pause();
+				vmsound.currentTime = 0;
+				spsound.pause();
+				spsound.currentTime = 0;
+				lbsound.pause();
+				lbsound.currentTime = 0;
+				dpsound.pause();
+				dpsound.currentTime = 0;
+			ptwsound.pause();
+			ptwsound.currentTime = 0;
+			ptwsound.play();
+        }
+		function StopTout() {
+				var ptwsound = document.getElementById("paytowin");
+				var vmsound = document.getElementById("virtualmoney");
+				var spsound = document.getElementById("seasonpass");
+				var lbsound = document.getElementById("lootbox");
+				var dpsound = document.getElementById("darkpattern");
+				vmsound.pause();
+				vmsound.currentTime = 0;
+				spsound.pause();
+				spsound.currentTime = 0;
+				lbsound.pause();
+				lbsound.currentTime = 0;
+				dpsound.pause();
+				dpsound.currentTime = 0;
+				ptwsound.pause();
+				ptwsound.currentTime = 0;
+			
+        }
+</script>
+  
+  </body>
+</html>
