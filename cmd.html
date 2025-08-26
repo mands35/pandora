@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Escape Game Terminal</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: lime;
+      font-family: monospace;
+      padding: 10px;
+    }
+    #terminal {
+      white-space: pre-wrap;
+    }
+    .input-line {
+      display: flex;
+      align-items: center;
+    }
+    .prompt {
+      margin-right: 5px;
+    }
+    #commandInput {
+      background: none;
+      border: none;
+      color: lime;
+      font: inherit;
+      outline: none;
+      width: 100%;
+    }
+    .progress {
+      display: flex;
+      margin: 5px 0;
+      width: 100%;
+      height: 20px;
+      background: #444;
+    }
+    .progress-segment {
+      flex: 1;
+      background: transparent;
+      text-align: center;
+      line-height: 20px;
+      color: black;
+      font-weight: bold;
+    }
+    .filled {
+      background: lime;
+    }
+    .destruction {
+      animation: flicker 0.1s infinite alternate;
+      font-weight: bold;
+      text-align: center;
+      font-size: 2em;
+      margin-top: 20px;
+    }
+    @keyframes flicker {
+      0% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+    #finalImage {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 3s ease-in;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    #finalImage.show {
+      display: block;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <div class="input-line">
+    <span class="prompt">user@asterios:~$</span>
+    <input type="text" id="commandInput" autocomplete="off" autofocus />
+  </div>
+  <img src="NUM_Tweet_Sortie_Icare.jpg" id="finalImage" alt="Fin" />
+  <script>
+    const terminal = document.getElementById("terminal");
+    const input = document.getElementById("commandInput");
+    const prompt = "user@asterios:~$";
+    const fragments = ["oiram", "42", "P4/ndA", "6"];
+    const fragmentNames = ["fragment1", "fragment2", "fragment3", "fragment4"];
+    const found = [false, false, false, false];
+    const finalPassword = "oiram42P4/ndA6";
+    let bootDone = false;
+    let systemDestroyed = false;
+    let progressBar;
+    let destructionBanner;
+
+    const bootSequence = [
+      "Booting Asterios OS v1.7...",
+      "[ OK ] Initializing system modules",
+      "[ OK ] Loading kernel modules",
+      "[ OK ] Mounting /root",
+      "[ OK ] Starting secure shell service",
+      "[ OK ] Network manager initialized",
+      "Bienvenue dans le système sécurisé.",
+      "Entrez la commande :"
+    ];
+
+    async function typeLines(lines, delay = 500) {
+      for (let line of lines) {
+        printLine(line);
+        await new Promise(r => setTimeout(r, delay));
+      }
+      bootDone = true;
+    }
+
+    function printLine(text) {
+      const line = document.createElement("div");
+      line.textContent = text;
+      terminal.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function updateProgressBar() {
+      if (progressBar) progressBar.remove();
+      progressBar = document.createElement("div");
+      progressBar.className = "progress";
+
+      fragments.forEach((fragment, i) => {
+        const segment = document.createElement("div");
+        segment.className = "progress-segment";
+        if (found[i]) {
+          segment.classList.add("filled");
+          segment.textContent = `${fragmentNames[i]}=${fragments[i]}`;
+        } else {
+          segment.textContent = fragmentNames[i];
+        }
+        progressBar.appendChild(segment);
+      });
+
+      terminal.appendChild(progressBar);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function handleCommand(cmd) {
+      if (systemDestroyed) return;
+      const normCmd = cmd.replace(/\\/g, "/").toLowerCase();
+      const normFinal = finalPassword.toLowerCase();
+      printLine(`${prompt} ${cmd}`);
+
+      if (normCmd === "local_machine/pandora/shutdown") {
+        printLine("Commande reconnue. Saisissez les fragments de mot de passe.");
+      } else {
+        const index = fragments.findIndex(f => f.toLowerCase() === normCmd);
+        if (index !== -1) {
+          if (!found[index]) {
+            found[index] = true;
+            updateProgressBar();
+            if (found.every(Boolean)) {
+              printLine("Tous les fragments trouvés. Veuillez entrer le mot de passe final.");
+            }
+          } else {
+            printLine("Fragment déjà entré.");
+          }
+        } else if (cmd.replace(/\\/g, "/") === finalPassword || normCmd === normFinal) {
+          triggerDestruction();
+        } else {
+          printLine("Commande non reconnue.");
+        }
+      }
+    }
+
+    function triggerDestruction() {
+      printLine("Mot de passe final accepté. Destruction du système en cours...");
+      systemDestroyed = true;
+      destructionBanner = document.createElement("div");
+      destructionBanner.className = "destruction";
+      destructionBanner.textContent = "⚠️ DESTRUCTION DU SYSTÈME ⚠️";
+      terminal.appendChild(destructionBanner);
+      terminal.scrollTop = terminal.scrollHeight;
+
+      let count = 0;
+      const duration = 10000;
+      const intervalTime = 200;
+      const maxSteps = duration / intervalTime;
+      const interval = setInterval(() => {
+        if (count >= maxSteps) {
+          clearInterval(interval);
+          terminal.innerHTML = "";
+          document.body.style.background = "black";
+          destructionBanner.remove();
+          setTimeout(() => {
+            document.getElementById("finalImage").classList.add("show");
+          }, 100);
+        } else {
+          printLine(`[SYS] Erasing sector ${Math.floor(Math.random() * 9999)}...`);
+          count++;
+        }
+        terminal.scrollTop = terminal.scrollHeight;
+      }, intervalTime);
+    }
+
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter" && bootDone && !systemDestroyed) {
+        const value = input.value.trim();
+        if (value) handleCommand(value);
+        input.value = "";
+      }
+    });
+
+    typeLines(bootSequence);
+  </script>
+</body>
+</html>
