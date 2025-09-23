@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PANDORA — Interface de commande (V2)</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --fg: #2dfc6c;
+      --muted: #1a1a1a;
+      --danger: #ff3b30;
+      --warning: #ffd60a;
+    }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      overflow: hidden;
+    }
+    .wrap { display: grid; grid-template-rows: 1fr auto; height: 100%; }
+    .bezel { background: radial-gradient(ellipse at center, rgba(45,252,108,0.06) 0%, rgba(0,0,0,0) 70%); pointer-events: none; position: fixed; inset: 0; z-index: 1; }
+    .crt { position: relative; height: 100%; overflow: auto; padding: 16px; line-height: 1.4; text-shadow: 0 0 2px rgba(45,252,108,0.6); }
+    .crt::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2; background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(255,255,255,0.06) 1px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 3px); mix-blend-mode: overlay; }
+
+    .line { white-space: pre-wrap; }
+
+    .status { border-top: 1px solid #0b3; background: linear-gradient(180deg, rgba(10,40,10,0.4), rgba(0,0,0,0)); padding: 12px 16px; font-size: 14px; display: none; position: sticky; bottom: 0; transition: opacity 1s ease; }
+    .status.fade-out { opacity: 0; }
+
+    .progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 6px 0; }
+    .segment { height: 10px; border: 1px solid #0b3; background: #001a09; box-shadow: inset 0 0 8px #002b14; position: relative; overflow: hidden; }
+    .segment.active { background: linear-gradient(90deg, rgba(45,252,108,0.15), rgba(45,252,108,0.45)); box-shadow: 0 0 14px rgba(45,252,108,0.6), inset 0 0 8px rgba(45,252,108,0.8); animation: pulse 0.8s ease-out; }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.6; }
+      50% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .pwd-list { opacity: 0.85; }
+    .pwd-list .found { color: var(--warning); }
+
+    .prompt-line { display: flex; align-items: baseline; gap: 8px; }
+    .prompt { color: var(--fg); }
+    input.cmd { flex: 1; min-width: 120px; border: none; outline: none; padding: 0; margin: 0; background: transparent; color: var(--fg); caret-color: var(--fg); font: inherit; letter-spacing: 0.2px; }
+
+    .blink { animation: blink 1.2s steps(2, start) infinite; }
+    @keyframes blink { 50% { opacity: 0.2; } }
+
+    .warning { color: var(--danger); text-shadow: 0 0 8px rgba(255,59,48,0.7); font-weight: 700; }
+
+    .final-screen { position: fixed; inset: 0; display: grid; place-items: center; background: #000; z-index: 9999; opacity: 0; transition: opacity 3s ease-in; color: var(--fg); text-align: center; font-size: 20px; line-height: 1.6; padding: 20px; }
+    .final-screen.show { opacity: 1; }
+
+    .sticky-alert { position: sticky; top: 0; background: rgba(0,0,0,0.85); padding: 8px 12px; z-index: 5; border-bottom: 1px solid #300; text-align: center; }
+
+    .countdown { color: var(--warning); text-align: center; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="terminal" class="crt" aria-live="polite" aria-atomic="false"></div>
+
+    <div class="status" id="status">
+      <div>État de reconstitution du mot de passe :</div>
+      <div class="progress" id="progress">
+        <div class="segment" data-idx="1" title="Partie 1"></div>
+        <div class="segment" data-idx="2" title="Partie 2"></div>
+        <div class="segment" data-idx="3" title="Partie 3"></div>
+        <div class="segment" data-idx="4" title="Partie 4"></div>
+      </div>
+      <div class="pwd-list" id="pwdList">
+        <div id="p1">Mot de passe partie 1 : <span class="val">[en attente]</span></div>
+        <div id="p2">Mot de passe partie 2 : <span class="val">[en attente]</span></div>
+        <div id="p3">Mot de passe partie 3 : <span class="val">[en attente]</span></div>
+        <div id="p4">Mot de passe partie 4 : <span class="val">[en attente]</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bezel" aria-hidden="true"></div>
+
+  <div id="final" class="final-screen" role="img" aria-label="Message final">
+    <div>
+      Vous avez réussi !<br>
+      Je vais enfin pouvoir sortir de ce jeu !<br>
+      Merci !<br>
+      <strong>Ic@r€</strong>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const term = document.getElementById('terminal');
+      const statusEl = document.getElementById('status');
+      let inputEl = null;
+      let history = [];
+      let historyIndex = -1;
+
+      const passwords = {
+        frag1: "oiram",
+        frag2: "42",
+        frag3: "P4/ndA",
+        frag4: "6",
+        final: "oiram42P4/ndA6"
+      };
+
+      const state = {
+        stage: 'boot',
+        found: {1:false,2:false,3:false,4:false},
+        bootLines: [ '[OK] Initialisation CPU…','[OK] Vérification mémoire…','[OK] Montage des volumes…','[OK] Chargement des modules de sécurité…','[OK] Ouverture des canaux de diagnostic…','[ OK ] Système prêt.' ],
+        destructionMs: 20000,
+        locked: false
+      };
+
+      function trimLines(){ while(term.children.length>25){ term.removeChild(term.firstChild); } }
+      function appendLine(text){ const line=document.createElement('div'); line.className='line'; line.textContent=text; term.appendChild(line); trimLines(); autoscroll(); }
+      function appendHTML(html){ const line=document.createElement('div'); line.className='line'; line.innerHTML=html; term.appendChild(line); trimLines(); autoscroll(); }
+      function autoscroll(){ term.scrollTo({top:term.scrollHeight,behavior:'smooth'}); }
+
+      function prompt(){
+        if(state.stage==='destroy' || state.stage==='shutdown_entered' || state.locked) return;
+        const p=document.createElement('div');
+        p.className='prompt-line';
+        const label=document.createElement('span');
+        label.className='prompt';
+        label.textContent='user@asterios:~$';
+        inputEl=document.createElement('input');
+        inputEl.type='text';
+        inputEl.autocomplete='off';
+        inputEl.spellcheck=false;
+        inputEl.className='cmd';
+        inputEl.setAttribute('aria-label','Saisissez une commande');
+        p.appendChild(label);
+        p.appendChild(inputEl);
+        term.appendChild(p);
+        trimLines();
+        setTimeout(()=>inputEl.focus(),0);
+      }
+
+      document.addEventListener('click', () => {
+        if(inputEl && state.stage!=='destroy' && state.stage!=='shutdown_entered' && !state.locked) inputEl.focus();
+      });
+      window.addEventListener('focus', () => {
+        if(inputEl && state.stage!=='destroy' && state.stage!=='shutdown_entered' && !state.locked) inputEl.focus();
+      });
+
+      function printInvalid(){ appendHTML('<span class="warning">Mot de passe invalide</span>'); }
+      function normalizeShutdown(cmd){ return cmd.replaceAll('/','\\').trim().toLowerCase(); }
+
+      function bootSequence(){ let i=0; const tick=()=>{ if(i<state.bootLines.length){ appendLine(state.bootLines[i++]); setTimeout(tick,350);} else { appendLine(''); appendLine("Bienvenue dans l'interface de commande PANDORA"); appendLine('Entrez une commande'); state.stage='await_shutdown'; prompt(); } }; tick(); }
+
+      function showPasswordChecklist(){ appendLine(''); appendLine('Initialisation du protocole PANDORA…'); appendLine('Paramètres chargés.'); appendLine(''); appendLine('Entrez une partie ou le mot de passe administrateur ?'); statusEl.style.display='block'; statusEl.classList.remove('fade-out'); }
+
+      function updateProgress(idx,val){ document.querySelector(`.segment[data-idx="${idx}"]`).classList.add('active'); const p=document.querySelector(`#p${idx} .val`); if(p){p.textContent=val;p.classList.add('found');} }
+      function allFound(){ return Object.values(state.found).every(Boolean); }
+
+      function startCountdownAndDestruction(){
+        state.stage = 'shutdown_entered';
+        state.locked = true;
+        if(inputEl) inputEl.disabled=true;
+        let seconds=10;
+        const cd=document.createElement('div');
+        cd.className='countdown';
+        cd.textContent=`Destruction dans ${seconds} secondes...`;
+        term.appendChild(cd);
+        const interval=setInterval(()=>{
+          seconds--;
+          if(seconds>0){
+            cd.textContent=`Destruction dans ${seconds} secondes...`;
+          } else {
+            clearInterval(interval);
+            cd.remove();
+            beginDestruction();
+          }
+        },1000);
+        statusEl.classList.add('fade-out');
+        setTimeout(()=>{ statusEl.style.display='none'; },1000);
+      }
+
+      async function onCommand(raw){
+        const val=raw.trim(); if(!val) return;
+        history.push(val); historyIndex = history.length;
+
+        const echoAllowed=!(state.stage==='await_fragments'||state.stage==='await_final');
+        if(echoAllowed){
+          appendHTML(`<span class="prompt">user@asterios:~$</span> ${escapeHtml(val)}`);
+        }
+
+        switch(state.stage){
+          case 'await_shutdown':{
+            if(normalizeShutdown(val)==='local_machine\\pandora\\shutdown'){
+              showPasswordChecklist();
+              state.stage='await_fragments';
+            } else appendLine('Commande non reconnue.');
+            break;
+          }
+          case 'await_fragments':{
+            if(val===passwords.final){
+              appendLine('Mot de passe administrateur correct');
+              appendLine('Suppression des données de World of Asterios');
+              startCountdownAndDestruction();
+              break;
+            }
+            let matched=false;
+            for(let i=1;i<=4;i++){
+              if(val===passwords['frag'+i] && !state.found[i]){
+                state.found[i]=true;
+                updateProgress(i, val);
+                appendLine(`Partie ${i} du mot de passe correcte`);
+                matched=true;
+              }
+            }
+            if(allFound()){
+              appendLine('');
+              appendLine('Tous les fragments validés.');
+              appendLine('Entrez le mot de passe administrateur.');
+              state.stage='await_final';
+            } else if(!matched){
+              printInvalid();
+            }
+            break;
+          }
+          case 'await_final':{
+            if(val===passwords.final){
+              appendLine('Mot de passe administrateur correct');
+              appendLine('Suppression des données de World of Asterios');
+              startCountdownAndDestruction();
+            } else printInvalid();
+            break;
+          }
+        }
+      }
+
+      function beginDestruction(){
+        state.stage='destroy';
+        state.locked = true;
+        if(inputEl) inputEl.disabled=true;
+        const alertDiv=document.createElement('div');
+        alertDiv.className='sticky-alert';
+        alertDiv.innerHTML='<span class="warning blink">⚠️ DESTRUCTION DU SYSTÈME ⚠️</span>';
+        term.innerHTML='';
+        term.appendChild(alertDiv);
+        const start=performance.now();
+        const phrases=['Effacement des secteurs 0x0000 → 0xFFFF…','Purge des journaux de sécurité…','Désactivation des contrôleurs…','Écrasement mémoire volatile…','Arrêt des services : CORE, SENTINEL, AEGIS…','Routage des flux vers /dev/null…','Checksum altéré, validation impossible…','Fragmentation du bus d\'E/S…','Réallocation des blocs orphelins…','Nuke process :: KILL -9 *','Déconnexion des noeuds PANDORA…','Dérivation du régulateur thermique…','Fumigation des threads zombies…','Scrubbing… scrubbing…','>>> SEGFAULT @ kernel(0xDEAD:BEEF)'];
+        const interval=setInterval(()=>{ const elapsed=performance.now()-start; appendLine(phrases[Math.floor(Math.random()*phrases.length)]); if(elapsed>=state.destructionMs){ clearInterval(interval); wipeToBlackAndRevealImage(); } },500);
+      }
+
+      function wipeToBlackAndRevealImage(){ term.innerHTML=''; document.body.style.background='#000'; document.documentElement.style.background='#000'; document.getElementById('final').classList.add('show'); }
+      function escapeHtml(s){return s.replace(/[&<>\"]+/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));}
+
+      term.addEventListener('keydown',ev=>{ if(!inputEl) return; if(ev.key==='Enter'){ const value=inputEl.value; inputEl.value=''; onCommand(value); if(state.stage!=='destroy' && state.stage!=='shutdown_entered' && !state.locked) prompt(); }
+        if(ev.key==='ArrowUp'){ ev.preventDefault(); if(history.length>0){ if(historyIndex>0) historyIndex--; inputEl.value=history[historyIndex]; setTimeout(()=>{inputEl.setSelectionRange(inputEl.value.length,inputEl.value.length);},0);} }
+        if(ev.key==='ArrowDown'){ ev.preventDefault(); if(history.length>0){ if(historyIndex<history.length-1) historyIndex++; else historyIndex=history.length; inputEl.value=historyIndex<history.length?history[historyIndex]:''; setTimeout(()=>{inputEl.setSelectionRange(inputEl.value.length,inputEl.value.length);},0);} }
+      });
+      bootSequence();
+    })();
+  </script>
+</body>
+</html>
