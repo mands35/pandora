@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Atelier — Gestionnaire de mots de passe (Test)</title>
+    <style>
+        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 24px; max-width: 900px; }
+        h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
+        h2 { font-size: 1.1rem; margin-top: 1.6rem; }
+        form { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin-bottom: 12px; background: #fafafa; }
+        label { display: block; margin-top: 8px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+        .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+        button { padding: 8px 12px; border-radius: 6px; border: 1px solid #888; background: white; cursor: pointer; }
+        .message { margin-top: 8px; font-weight: 600; }
+        .message.error { color: #b00020; }
+        .message.success { color: #0a6f2b; }
+        .small { font-size: 0.9rem; color: #555; margin-top: 6px; }
+        .controls { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+        .note { font-size:0.9rem; color:#444; margin-top:12px; }
+        .card { padding:10px; border-radius:8px; border:1px dashed #eee; background:#fff; }
+    </style>
+</head>
+<body>
+    <h1>Atelier — Gestionnaire de mots de passe (Test)</h1>
+    <p class="note">Cette page est un simulateur local et autonome pour s'entraîner à créer, enregistrer et tester des identifiants. Les données sont conservées uniquement en mémoire (tant que la page reste ouverte). Utilisez-la sans danger pendant l'atelier.</p>
+
+    <h2>Inscription (créer un identifiant)</h2>
+    <form id="signupForm" class="card" autocomplete="off">
+        <label for="signupUsername">Identifiant</label>
+        <input id="signupUsername" type="text" placeholder="ex : thibault" required />
+
+        <label for="signupPassword">Mot de passe</label>
+        <input id="signupPassword" type="password" placeholder="votre mot de passe" required />
+        <div class="row">
+            <button type="button" id="generatePassword">Générer un mot de passe</button>
+            <button type="button" id="toggleSignupPwd">Afficher</button>
+        </div>
+
+        <div class="row">
+            <button type="submit">S'inscrire</button>
+            <button type="button" id="clearStored">Effacer stockage (mémoire)</button>
+        </div>
+
+        <div id="signupMessage" class="message" aria-live="polite"></div>
+        <div id="pwdStrength" class="small"></div>
+    </form>
+
+    <h2>Connexion (tester l'identifiant)</h2>
+    <form id="loginForm" class="card" autocomplete="off">
+        <label for="loginUsername">Identifiant</label>
+        <input id="loginUsername" type="text" placeholder="identifiant" required />
+
+        <label for="loginPassword">Mot de passe</label>
+        <input id="loginPassword" type="password" placeholder="mot de passe" required />
+        <div class="row">
+            <button type="submit">Se connecter</button>
+            <button type="button" id="toggleLoginPwd">Afficher</button>
+        </div>
+
+        <div id="loginMessage" class="message" aria-live="polite"></div>
+    </form>
+
+    <div class="note">
+        Astuce pour l'atelier : demandez aux participant·e·s d'utiliser <em>Générer un mot de passe</em>, de le copier (sélectionner + Ctrl/Cmd+C) et de le coller dans le champ d'inscription pour voir la gestion d'un mot de passe fort.
+    </div>
+
+    <script>
+        // Stockage temporaire en mémoire (non persistant)
+        let stored = {
+            username: '',
+            password: ''
+        };
+
+        // Utils
+        function setMessage(elId, text, type) {
+            const el = document.getElementById(elId);
+            el.textContent = text;
+            el.className = 'message ' + (type === 'success' ? 'success' : type === 'error' ? 'error' : '');
+        }
+
+        function passwordStrength(pwd) {
+            // simple estimation : longueur + diversité de classes
+            if (!pwd) return '';
+            let score = 0;
+            if (pwd.length >= 8) score++;
+            if (pwd.length >= 12) score++;
+            if (/[a-z]/.test(pwd)) score++;
+            if (/[A-Z]/.test(pwd)) score++;
+            if (/[0-9]/.test(pwd)) score++;
+            if (/[^A-Za-z0-9]/.test(pwd)) score++;
+            if (score <= 2) return 'Faible';
+            if (score <= 4) return 'Moyen';
+            return 'Fort';
+        }
+
+        // Générateur simple de mot de passe fort
+        function generatePassword(length = 14) {
+            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*()-_=+[]{}';
+            let out = '';
+            for (let i = 0; i < length; i++) {
+                out += chars[Math.floor(Math.random() * chars.length)];
+            }
+            return out;
+        }
+
+        // Signup
+        document.getElementById('signupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const u = document.getElementById('signupUsername').value.trim();
+            const p = document.getElementById('signupPassword').value;
+
+            if (!u || !p) {
+                setMessage('signupMessage', 'Veuillez remplir tous les champs.', 'error');
+                return;
+            }
+
+            // Enregistrement en mémoire
+            stored.username = u;
+            stored.password = p;
+
+            setMessage('signupMessage', 'Inscription réussie ! Vous pouvez maintenant vous connecter.', 'success');
+            document.getElementById('pwdStrength').textContent = 'Solidité du mot de passe : ' + passwordStrength(p);
+        });
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUsername').value.trim();
+            const p = document.getElementById('loginPassword').value;
+
+            if (!stored.username) {
+                setMessage('loginMessage', "Aucun compte n'est enregistré. Inscrivez-vous d'abord.", 'error');
+                return;
+            }
+
+            if (u === stored.username && p === stored.password) {
+                setMessage('loginMessage', 'Connexion réussie !', 'success');
+            } else {
+                setMessage('loginMessage', "Identifiant ou mot de passe incorrect.", 'error');
+            }
+        });
+
+        // Generate password button
+        document.getElementById('generatePassword').addEventListener('click', function() {
+            const pwd = generatePassword();
+            const input = document.getElementById('signupPassword');
+            input.value = pwd;
+            document.getElementById('pwdStrength').textContent = 'Solidité du mot de passe : ' + passwordStrength(pwd);
+            setMessage('signupMessage', "Mot de passe généré — copiez-le pour l'inscrire.", '');
+            // Select the generated password so participants can copy easily
+            input.focus();
+            input.select();
+        });
+
+        // Toggle show/hide password for signup
+        document.getElementById('toggleSignupPwd').addEventListener('click', function() {
+            const input = document.getElementById('signupPassword');
+            const btn = document.getElementById('toggleSignupPwd');
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = 'Masquer';
+            } else {
+                input.type = 'password';
+                btn.textContent = 'Afficher';
+            }
+        });
+
+        // Toggle show/hide password for login
+        document.getElementById('toggleLoginPwd').addEventListener('click', function() {
+            const input = document.getElementById('loginPassword');
+            const btn = document.getElementById('toggleLoginPwd');
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = 'Masquer';
+            } else {
+                input.type = 'password';
+                btn.textContent = 'Afficher';
+            }
+        });
+
+        // Clear stored credentials
+        document.getElementById('clearStored').addEventListener('click', function() {
+            stored.username = '';
+            stored.password = '';
+            setMessage('signupMessage', 'Stockage mémoire effacé.', '');
+            document.getElementById('pwdStrength').textContent = '';
+        });
+
+        // Accessibility: allow Enter on generated password select to copy (informal)
+        document.getElementById('signupPassword').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.target.select();
+            }
+        });
+    </script>
+</body>
+</html>
